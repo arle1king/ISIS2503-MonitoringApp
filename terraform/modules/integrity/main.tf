@@ -190,76 +190,16 @@ resource "aws_kms_alias" "integrity" {
   target_key_id = aws_kms_key.integrity.key_id
 }
 
-# Lambda Function para validación de datos
-resource "aws_iam_role" "lambda_validation" {
-  name = "${var.project_name}-lambda-validation-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_validation" {
-  name = "${var.project_name}-lambda-validation-policy"
-  role = aws_iam_role.lambda_validation.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query"
-        ]
-        Resource = [
-          aws_dynamodb_table.audit_trail.arn,
-          aws_dynamodb_table.report_checksums.arn
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ]
-        Resource = aws_kms_key.integrity.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "rds-db:connect"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
+# Get LabRole for Lambda (Lambda execution role in CloudShell)
+data "aws_iam_role" "lambda_role" {
+  name = "LabRole"
 }
 
 # Lambda Function para detectar cambios no autorizados
 resource "aws_lambda_function" "data_validation" {
   filename      = "lambda_validation.zip"
   function_name = "${var.project_name}-data-validation"
-  role          = aws_iam_role.lambda_validation.arn
+  role          = data.aws_iam_role.lambda_role.arn
   handler       = "index.handler"
   runtime       = "python3.11"
   timeout       = 60
@@ -276,7 +216,6 @@ resource "aws_lambda_function" "data_validation" {
   }
 
   depends_on = [
-    aws_iam_role_policy.lambda_validation,
     aws_cloudwatch_log_group.lambda_logs
   ]
 }

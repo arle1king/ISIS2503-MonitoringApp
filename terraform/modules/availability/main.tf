@@ -16,6 +16,9 @@ terraform {
   }
 }
 
+# Get current AWS account ID for role ARN
+data "aws_caller_identity" "current" {}
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   name               = "${var.project_name}-alb"
@@ -270,7 +273,7 @@ resource "aws_db_instance" "postgres" {
   final_snapshot_identifier = var.environment == "prod" ? "${var.project_name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
 
   monitoring_interval    = 60
-  monitoring_role_arn    = aws_iam_role.rds_monitoring.arn
+  monitoring_role_arn    = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
   enable_cloudwatch_logs_exports = ["postgresql"]
 
   deletion_protection = var.environment == "prod" ? true : false
@@ -304,80 +307,11 @@ resource "aws_db_parameter_group" "postgres" {
   }
 }
 
-# IAM Role para monitoreo de RDS
-resource "aws_iam_role" "rds_monitoring" {
-  name = "${var.project_name}-rds-monitoring"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "monitoring.rds.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "rds_monitoring" {
-  role       = aws_iam_role.rds_monitoring.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-}
-
-# IAM Role para instancias EC2
-resource "aws_iam_role" "django_role" {
-  name = "${var.project_name}-django-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "django_policy" {
-  name = "${var.project_name}-django-policy"
-  role = aws_iam_role.django_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "cloudwatch:PutMetricData",
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogStreams"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
-        ]
-        Resource = "arn:aws:ssm:*:*:parameter/${var.project_name}/*"
-      }
-    ]
-  })
-}
-
+# IAM Instance Profile using existing LabRole
+# Note: RDS monitoring uses LabRole (CloudShell lab environment)
 resource "aws_iam_instance_profile" "django" {
   name = "${var.project_name}-django-profile"
-  role = aws_iam_role.django_role.name
+  role = "LabRole"
 }
 
 # CloudWatch Dashboard

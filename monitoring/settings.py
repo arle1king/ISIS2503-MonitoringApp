@@ -75,15 +75,16 @@ WSGI_APPLICATION = 'monitoring.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
+# Soporta RDS remoto o local PostgreSQL según variables de entorno
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'name_db',
-        'USER': 'user_db',
-        'PASSWORD': 'user_password',
-        'HOST': 'localhost',
-        'PORT': '',
+        'NAME': os.environ.get('RDS_DB', 'name_db'),
+        'USER': os.environ.get('RDS_USER', 'user_db'),
+        'PASSWORD': os.environ.get('RDS_PASSWORD', 'user_password'),
+        'HOST': os.environ.get('RDS_HOST', 'localhost'),
+        'PORT': os.environ.get('RDS_PORT', '5432'),
     }
 }
 

@@ -18,20 +18,7 @@ terraform {
   }
 }
 
-# VPC Flow Logs para auditoría y compliance
-resource "aws_flow_log" "main" {
-  name                    = "${var.project_name}-flow-logs"
-  iam_role_arn           = aws_iam_role.flow_logs.arn
-  log_destination        = aws_cloudwatch_log_group.flow_logs.arn
-  traffic_type           = "ALL"
-  vpc_id                 = var.vpc_id
-
-  tags = {
-    Name        = "${var.project_name}-flow-logs"
-    Environment = var.environment
-  }
-}
-
+# VPC Flow Logs para auditoría y compliance (usando CloudWatch Logs)
 resource "aws_cloudwatch_log_group" "flow_logs" {
   name              = "/aws/vpc/flowlogs/${var.project_name}"
   retention_in_days = 90
@@ -42,43 +29,22 @@ resource "aws_cloudwatch_log_group" "flow_logs" {
   }
 }
 
-resource "aws_iam_role" "flow_logs" {
-  name = "${var.project_name}-flowlogs-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "vpc-flow-logs.amazonaws.com"
-        }
-      }
-    ]
-  })
+# Data source para obtener LabRole ARN
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
 }
 
-resource "aws_iam_role_policy" "flow_logs" {
-  name = "${var.project_name}-flowlogs-policy"
-  role = aws_iam_role.flow_logs.id
+resource "aws_flow_log" "main" {
+  name                    = "${var.project_name}-flow-logs"
+  iam_role_arn           = data.aws_iam_role.lab_role.arn
+  log_destination        = aws_cloudwatch_log_group.flow_logs.arn
+  traffic_type           = "ALL"
+  vpc_id                 = var.vpc_id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogGroups",
-          "logs:DescribeLogStreams"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }
-    ]
-  })
+  tags = {
+    Name        = "${var.project_name}-flow-logs"
+    Environment = var.environment
+  }
 }
 
 # AWS WAF para protección de aplicación
@@ -280,18 +246,19 @@ resource "aws_kms_alias" "main" {
   target_key_id = aws_kms_key.main.key_id
 }
 
-# KMS Key Policy
+# KMS Key Policy (simplified - allow root and services)
 resource "aws_kms_key_policy" "main" {
   key_id = aws_kms_key.main.id
 
   policy = jsonencode({
-    Id = "key-policy-1"
+    Version = "2012-10-17"
+    Id      = "key-policy-1"
     Statement = [
       {
         Sid    = "Enable IAM User Permissions"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.aws_account_id}:root"
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action   = "kms:*"
         Resource = "*"
@@ -317,129 +284,19 @@ resource "aws_kms_key_policy" "main" {
   })
 }
 
-# IAM Role para aplicación Django
-resource "aws_iam_role" "django_confidential" {
-  name = "${var.project_name}-django-confidential-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-# IAM Policy con mínimos permisos
-resource "aws_iam_role_policy" "django_confidential" {
-  name = "${var.project_name}-django-confidential-policy"
-  role = aws_iam_role.django_confidential.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "CloudWatchLogs"
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:${var.log_group_name}:*"
-      },
-      {
-        Sid    = "KMSDecrypt"
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ]
-        Resource = aws_kms_key.main.arn
-      },
-      {
-        Sid    = "SSMParameterStore"
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
-        ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project_name}/confidential/*"
-      }
-    ]
-  })
-}
-
-# RDS Database con encriptación
-resource "aws_db_instance" "postgres_encrypted" {
-  identifier     = "${var.project_name}-db-encrypted"
-  engine         = "postgres"
-  engine_version = var.postgres_version
-
-  db_name  = var.db_name
-  username = var.db_username
-  password = var.db_password
-
-  instance_class       = var.db_instance_class
-  allocated_storage    = var.db_allocated_storage
-  storage_type         = "gp3"
-  
-  # Encriptación obligatoria
-  storage_encrypted            = true
-  kms_key_id                   = aws_kms_key.main.arn
-  
-  # SSL/TLS para conexiones
-  publicly_accessible = false
-
-  db_subnet_group_name   = var.db_subnet_group_name
-  vpc_security_group_ids = [var.database_security_group_id]
-
-  backup_retention_period = 30
-  backup_window           = "03:00-04:00"
-  maintenance_window      = "mon:04:00-mon:05:00"
-
-  multi_az = true
-
-  # Enable encryption for backups
-  copy_tags_to_snapshot       = true
-  
-  parameter_group_name = aws_db_parameter_group.postgres_secure.name
-
-  skip_final_snapshot = var.environment == "dev" ? true : false
-  
-  monitoring_interval    = 60
-  monitoring_role_arn    = aws_iam_role.rds_monitoring.arn
-  enable_cloudwatch_logs_exports = ["postgresql"]
-
-  deletion_protection = var.environment == "prod" ? true : false
-
-  tags = {
-    Name        = "${var.project_name}-db-encrypted"
-    Environment = var.environment
-  }
-
-  depends_on = [aws_iam_role_policy.rds_monitoring]
-}
-
-# DB Parameter Group con seguridad
+# DB Parameter Group
 resource "aws_db_parameter_group" "postgres_secure" {
   family = "postgres${var.postgres_version}"
   name   = "${var.project_name}-pg-secure"
 
-  # Forzar SSL
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name  = "log_duration"
+    value = "true"
   }
 
-  # Logging de queries
   parameter {
-    name  = "log_statement"
-    value = "all"
+    name  = "log_min_duration_statement"
+    value = "1000"
   }
 
   tags = {
@@ -447,23 +304,6 @@ resource "aws_db_parameter_group" "postgres_secure" {
     Environment = var.environment
   }
 }
-
-# IAM Role para monitoreo de RDS
-resource "aws_iam_role" "rds_monitoring" {
-  name = "${var.project_name}-rds-monitoring-confidential"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "monitoring.rds.amazonaws.com"
-        }
-      }
-    ]
-  })
 }
 
 resource "aws_iam_role_policy_attachment" "rds_monitoring" {
