@@ -133,3 +133,12 @@ MEDIA_ROOT = os.path.join(PROJECT_ROOT, 'static', 'media')
 STATICFILES_DIRS = (
     os.path.join(PROJECT_ROOT, 'static'),
 )
+
+# --- Integrity hashing upload configuration (optional) ---
+# Configure these via environment variables in production.
+ENABLE_HASH_UPLOAD = os.environ.get('ENABLE_HASH_UPLOAD', 'False').lower() in ('1', 'true', 'yes')
+# S3 bucket where immutable hash files will be stored, e.g. 'hashes-inmutables'
+S3_BUCKET_HASHES = os.environ.get('S3_BUCKET_HASHES', '')
+
+# AWS credentials fall back to standard boto3 environment/provider chain; set
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment if needed.
