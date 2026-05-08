@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'variables.middleware.TenantMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -142,3 +143,6 @@ S3_BUCKET_HASHES = os.environ.get('S3_BUCKET_HASHES', '')
 
 # AWS credentials fall back to standard boto3 environment/provider chain; set
 # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment if needed.
+
+# Default tenant for requests without tenant claims
+DEFAULT_TENANT = os.environ.get('DEFAULT_TENANT', 'public')
