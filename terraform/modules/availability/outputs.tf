@@ -27,3 +27,8 @@ output "rds_address" {
   value       = aws_db_instance.postgres.address
   description = "Dirección de RDS"
 }
+
+output "rds_arn" {
+  value       = aws_db_instance.postgres.arn
+  description = "ARN de la instancia RDS"
+}

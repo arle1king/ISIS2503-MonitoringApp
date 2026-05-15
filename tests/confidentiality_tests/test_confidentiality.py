@@ -16,6 +16,7 @@ from botocore.exceptions import ClientError
 import ssl
 import socket
 
+@pytest.mark.integration
 class TestConfidentiality:
     """Suite de tests para ASR de Confidencialidad"""
 
@@ -205,6 +206,7 @@ class TestConfidentiality:
             print(f"✓ Alarma de acceso no autorizado configurada: {unauthorized_alarm['AlarmName']}")
 
 
+@pytest.mark.integration
 class TestConfidentialityAccess:
     """Tests de control de acceso"""
 

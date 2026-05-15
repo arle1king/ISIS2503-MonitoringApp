@@ -8,6 +8,24 @@ Este proyecto implementa la infraestructura en AWS como código (Infrastructure 
 2. **Confidencialidad**: Bloquear acceso no autorizado a datos de otras empresas (100%)
 3. **Integridad**: Detectar y rechazar datos modificados antes de generación de reportes (100%)
 
+## Adaptación a tus diagramas
+
+La infraestructura modular de este repositorio ya cubre el modelo que mostraste en tus diagramas:
+
+- **Disponibilidad**: `module.availability` representa el balanceador de carga, el grupo de autoescalado y la base de datos para el servidor de usuarios.
+- **Confidencialidad**: `module.confidentiality` y `module.proxysql` representan WAF, aislamiento por tenant, ProxySQL, seguridad de red y cifrado.
+- **Integridad**: `module.integrity` representa hashes inmutables, DynamoDB de auditoría, Lambda de validación y EventBridge.
+
+Las variables que más vas a tocar para tu entrega son:
+
+- Disponibilidad: `asg_min_size`, `asg_max_size`, `asg_desired_capacity`, `instance_type`, `enable_https`, `certificate_arn`.
+- Confidencialidad: `allowed_ssh_cidrs`, `admin_cidrs`, `blocked_ip_list`, `db_username`, `db_password`.
+- Integridad: `db_endpoint`, `db_username`, `db_password`, `source_db_arn`.
+
+Para la parte de aplicación, `monitoring/settings.py` ya expone `ENABLE_HASH_UPLOAD`, `S3_BUCKET_HASHES` y `DEFAULT_TENANT` por variables de entorno.
+
+La especificación completa y adaptada a tu caso está en [docs/EXPERIMENTOS_ADAPTADOS.md](../docs/EXPERIMENTOS_ADAPTADOS.md).
+
 ## Estructura del Proyecto
 
 ```

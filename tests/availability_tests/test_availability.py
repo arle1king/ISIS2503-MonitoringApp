@@ -15,6 +15,7 @@ import requests
 from datetime import datetime
 import subprocess
 
+@pytest.mark.integration
 class TestAvailability:
     """Suite de tests para ASR de Disponibilidad"""
 
@@ -91,11 +92,12 @@ class TestAvailability:
         Validar que el ALB responde en tiempo aceptable
         - Target Response Time < 2 segundos en promedio
         """
+        from datetime import timedelta
         metrics = aws_clients['cloudwatch'].get_metric_statistics(
             Namespace='AWS/ApplicationELB',
             MetricName='TargetResponseTime',
             Dimensions=[],
-            StartTime=datetime.utcnow().replace(hour=datetime.utcnow().hour-1),
+            StartTime=datetime.utcnow() - timedelta(hours=1),
             EndTime=datetime.utcnow(),
             Period=300,
             Statistics=['Average', 'Maximum']
@@ -164,10 +166,11 @@ class TestAvailability:
         """
         Validar métrica de disponibilidad de la base de datos
         """
+        from datetime import timedelta
         metrics = aws_clients['cloudwatch'].get_metric_statistics(
             Namespace='AWS/RDS',
             MetricName='DatabaseAvailability',
-            StartTime=datetime.utcnow().replace(hour=datetime.utcnow().hour-1),
+            StartTime=datetime.utcnow() - timedelta(hours=1),
             EndTime=datetime.utcnow(),
             Period=300,
             Statistics=['Average']
@@ -179,6 +182,7 @@ class TestAvailability:
             print(f"✓ Database Availability: {avg_availability:.2f}%")
 
 
+@pytest.mark.integration
 class TestAvailabilityLoadScenarios:
     """Tests de carga para validar disponibilidad"""
 

@@ -130,10 +130,10 @@ module "integrity" {
   aws_account_id = data.aws_caller_identity.current.account_id
   log_group_name = module.common.log_group_name
 
-  db_endpoint     = module.availability.rds_address
+  db_endpoint     = module.availability.rds_endpoint
   db_username     = var.db_username
   db_password     = var.db_password
-  source_db_arn   = module.availability.rds_address
+  source_db_arn   = module.availability.rds_arn
 }
 
 # SNS Topic para alertas de seguridad

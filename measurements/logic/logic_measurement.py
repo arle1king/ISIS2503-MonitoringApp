@@ -1,6 +1,6 @@
 from ..models import Measurement, ConsumoCloud
-from django.db.models import Sum
-from datetime import datetime
+from django.db.models import Sum, F, ExpressionWrapper, FloatField
+from datetime import datetime, timedelta
 
 
 def get_measurements():
@@ -39,8 +39,12 @@ def generate_cost_report(year: int, month: int, tenant: str = 'public', usuario:
             return (False, {'reason': 'manipulado', 'log_id': log.pk})
 
     # Si todos válidos, agregar y construir reporte
-    # Agrupar por recurso (servicio) y sumar costos
-    summary = registros.values('recurso').annotate(total_cost=Sum('costoPorUnidad' * 'cantidadUtilizadas'))
+    # Agrupar por recurso (servicio) y sumar costos — usar expresiones ORM seguras
+    try:
+        expr = ExpressionWrapper(F('costoPorUnidad') * F('cantidadUtilizadas'), output_field=FloatField())
+        summary = registros.values('recurso').annotate(total_cost=Sum(expr))
+    except Exception:
+        summary = None
 
     # Fallback manual aggregation (in case DB expression unsupported)
     totals = {}

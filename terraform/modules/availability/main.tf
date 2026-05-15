@@ -157,10 +157,10 @@ resource "aws_autoscaling_group" "django" {
   health_check_type   = "ELB"
   health_check_grace_period = 60
 
-  # Capacidad para recuperación rápida (ASR: 3 instancias mínimo)
-  min_size             = 3              # Siempre 3 instancias (usuarios, datos, notificaciones)
+  # Capacidad para recuperación rápida (ASR: configurable por entorno)
+  min_size             = var.min_size
   max_size             = var.max_size
-  desired_capacity     = 3              # Exactamente 3 para experimento
+  desired_capacity     = var.desired_capacity
 
   launch_template {
     id      = aws_launch_template.django.id

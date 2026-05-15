@@ -8,9 +8,9 @@ admin_cidrs = ["0.0.0.0/0"]
 log_retention_days = 7
 
 instance_type = "t3.medium"
-asg_min_size = 1
+asg_min_size = 2
 asg_max_size = 2
-asg_desired_capacity = 1
+asg_desired_capacity = 2
 
 db_username = "adminuser"
 db_password = "ChangeMe123!"  # Cambiar a contraseña segura
